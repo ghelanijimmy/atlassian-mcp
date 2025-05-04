@@ -1,11 +1,18 @@
-import express, { Request, Response } from "express";
+import express from 'express';
+import type { Request, Response } from 'express';
 import { config } from "dotenv";
 import axios from "axios";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
-config();
+// Load and verify environment variables
+const result = config();
+console.log('Dotenv config result:', result);
+console.log('JIRA_DOMAIN:', process.env.JIRA_DOMAIN);
+console.log('JIRA_EMAIL:', process.env.JIRA_EMAIL);
+console.log('PORT:', process.env.PORT);
 
 const JIRA_BASE = `https://${process.env.JIRA_DOMAIN}`;
 const AUTH_HEADER = {
@@ -180,28 +187,12 @@ app.post(PATH, async (req: Request, res: Response) => {
 });
 
 app.get(PATH, async (req: Request, res: Response) => {
+  console.log('Received GET /mcp request');
+  console.log('Request headers:', req.headers);
+
   try {
     const server = getServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-
-    res.on("close", () => {
-      transport.close();
-      server.close();
-    });
-
-    await server.connect(transport);
-    
-    // Handle SSE events
-    transport.handleRequest(req, res, {}).catch((error) => {
-      console.error("Transport error:", error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: { code: -32603, message: "Internal server error" },
-          id: null
-        });
-      }
-    });
 
     // Keep the connection alive
     const keepAlive = setInterval(() => {
@@ -214,6 +205,17 @@ app.get(PATH, async (req: Request, res: Response) => {
       server.close();
     });
 
+    await server.connect(transport);
+
+    // Handle transport messages
+    const handleMessage = (message: any) => {
+      res.write(`data: ${JSON.stringify(message)}\n\n`);
+    };
+    transport.onmessage = handleMessage;
+
+    // Let the transport handle the request (this will set headers and manage the SSE protocol)
+    await transport.handleRequest(req, res, {});
+
   } catch (error) {
     console.error("MCP Error:", error);
     if (!res.headersSent) {
@@ -223,6 +225,39 @@ app.get(PATH, async (req: Request, res: Response) => {
         id: null
       });
     }
+  }
+});
+
+// Store transports for each session
+const sseTransports: Record<string, SSEServerTransport> = {};
+
+// Legacy SSE endpoint for older clients
+app.get('/sse', async (req: Request, res: Response) => {
+  console.log('Received GET /sse request');
+  console.log('Request headers:', req.headers);
+  const server = getServer();
+  const transport = new SSEServerTransport('/messages', res);
+
+  // Store the transport by sessionId
+  sseTransports[transport.sessionId] = transport;
+
+  res.on("close", () => {
+    delete sseTransports[transport.sessionId];
+    transport.close();
+    server.close();
+  });
+
+  await server.connect(transport);
+});
+
+// Legacy message endpoint for older clients
+app.post('/messages', async (req: Request, res: Response) => {
+  const sessionId = req.query.sessionId as string;
+  const transport = sseTransports[sessionId];
+  if (transport) {
+    await transport.handlePostMessage(req, res, req.body);
+  } else {
+    res.status(400).send('No transport found for sessionId');
   }
 });
 
