@@ -4,7 +4,7 @@ import { config } from "dotenv";
 import axios from "axios";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 config();
 
@@ -19,7 +19,7 @@ const AUTH_HEADER = {
 };
 
 const server = new McpServer({
-  name: "Jira MCP SSE Server",
+  name: "Jira MCP Streamable Server",
   version: "1.0.0"
 });
 
@@ -153,14 +153,13 @@ server.tool("updateIssue", {
   };
 });
 
-// Attach SSE endpoint
-const transport = new SSEServerTransport();
-app.use("/sse", transport.handler(server));
+const transport = new StreamableHTTPServerTransport();
+app.use("/mcp", transport.handler(server));
 
 app.get("/", (_req, res) => {
-  res.send("MCP SSE Server is running.");
+  res.send("MCP server with StreamableHTTPServerTransport is running.");
 });
 
 app.listen(port, () => {
-  console.log(`MCP SSE server running on http://localhost:${port}/sse`);
+  console.log(`MCP Streamable HTTP server running on http://localhost:${port}/mcp`);
 });
