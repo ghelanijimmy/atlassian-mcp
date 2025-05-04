@@ -24,136 +24,145 @@ const AUTH_HEADER = {
 function getServer(): McpServer {
   const server = new McpServer({ name: "jira-mcp-server", version: "1.0.0" });
 
-  server.tool("getAssignedIssues", {}, { description: "Get Jira issues assigned to the current user" }, async () => {
-    const jql = `assignee = currentUser() ORDER BY updated DESC`;
-    const response = await axios.get(`${JIRA_BASE}/rest/api/3/search`, {
-      headers: AUTH_HEADER,
-      params: { jql, maxResults: 5, fields: "summary,status" }
-    });
-
-    // @ts-ignore
-    const issues = response.data.issues.map((issue) => ({
-      key: issue.key,
-      summary: issue.fields.summary,
-      status: issue.fields.status.name
-    }));
-
-    return {
-      content: [
+  server.tool(
+    "getAssignedIssues",
+    { maxResults: z.number().optional().default(5) },
+    { description: "Get Jira issues assigned to the current user" },
+    async ({ maxResults }, _extra) => {
+      const jql = `assignee = currentUser() ORDER BY updated DESC`;
+      const response = await axios.post(
+        `${JIRA_BASE}/rest/api/3/search/jql`,
         {
-          type: "text",
-          // @ts-ignore
-          text: issues.map((i) => `${i.key}: ${i.summary} [${i.status}]`).join("\n")
-        }
-      ]
-    };
-  });
-
-  server.tool("getIssueByKey", {
-    issueKey: z.string()
-  }, { description: "Fetch a specific Jira issue by its key" }, async ({ issueKey }) => {
-    const response = await axios.get(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
-      headers: AUTH_HEADER,
-      params: { fields: "summary,description,status,assignee,reporter,priority,comment,project" }
-    });
-
-    const fields = response.data.fields;
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: `${issueKey}: ${fields.summary}\nStatus: ${fields.status.name}\nAssignee: ${fields.assignee?.displayName || "Unassigned"}\nPriority: ${fields.priority?.name || "None"}\nProject: ${fields.project.name}`
-        }
-      ]
-    };
-  });
-
-  server.tool("transitionIssue", {
-    issueKey: z.string(),
-    transitionName: z.string()
-  }, { description: "Transition a Jira issue to a new status" }, async ({ issueKey, transitionName }) => {
-    const transitions = await axios.get(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/transitions`, {
-      headers: AUTH_HEADER
-    });
-
-    // @ts-ignore
-    const match = transitions.data.transitions.find((t) => t.name.toLowerCase() === transitionName.toLowerCase());
-
-    if (!match) {
-      return { content: [{ type: "text", text: `Transition "${transitionName}" not found.` }] };
+          jql,
+          maxResults: maxResults ?? 5,
+          fields: ["summary", "status"]
+        },
+        { headers: AUTH_HEADER }
+      );
+      // @ts-ignore
+      const issues = response.data.issues.map((issue: any) => ({
+        key: issue.key,
+        summary: issue.fields.summary,
+        status: issue.fields.status.name
+      }));
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: issues.map((i: any) => `${i.key}: ${i.summary} [${i.status}]`).join("\n")
+          }
+        ]
+      };
     }
+  );
 
-    await axios.post(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/transitions`, {
-      transition: { id: match.id }
-    }, { headers: AUTH_HEADER });
+  server.tool(
+    "getIssueByKey",
+    { issueKey: z.string() },
+    { description: "Fetch a specific Jira issue by its key" },
+    async ({ issueKey }, _extra) => {
+      const response = await axios.get(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
+        headers: AUTH_HEADER,
+        params: { fields: "summary,description,status,assignee,reporter,priority,comment,project" }
+      });
+      const fields = response.data.fields;
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `${issueKey}: ${fields.summary}\nStatus: ${fields.status.name}\nAssignee: ${fields.assignee?.displayName || "Unassigned"}\nPriority: ${fields.priority?.name || "None"}\nProject: ${fields.project.name}`
+          }
+        ]
+      };
+    }
+  );
 
-    return {
-      content: [{ type: "text", text: `Issue ${issueKey} transitioned to "${transitionName}".` }]
-    };
-  });
-
-  server.tool("assignIssue", {
-    issueKey: z.string(),
-    accountId: z.string()
-  }, { description: "Assign a Jira issue to a user by accountId" }, async ({ issueKey, accountId }) => {
-    await axios.put(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/assignee`, {
-      accountId
-    }, { headers: AUTH_HEADER });
-
-    return {
-      content: [{ type: "text", text: `Assigned ${issueKey} to account ${accountId}.` }]
-    };
-  });
-
-  server.tool("linkToEpic", {
-    issueKey: z.string(),
-    epicKey: z.string()
-  }, { description: "Link a Jira issue (like a Story) to an Epic" }, async ({ issueKey, epicKey }) => {
-    await axios.put(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
-      fields: {
-        parent: { key: epicKey }
+  server.tool(
+    "transitionIssue",
+    { issueKey: z.string(), transitionName: z.string() },
+    { description: "Transition a Jira issue to a new status" },
+    async ({ issueKey, transitionName }, _extra) => {
+      const transitions = await axios.get(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/transitions`, {
+        headers: AUTH_HEADER
+      });
+      // @ts-ignore
+      const match = transitions.data.transitions.find((t: any) => t.name.toLowerCase() === transitionName.toLowerCase());
+      if (!match) {
+        return { content: [{ type: "text" as const, text: `Transition "${transitionName}" not found.` }] };
       }
-    }, { headers: AUTH_HEADER });
+      await axios.post(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/transitions`, {
+        transition: { id: match.id }
+      }, { headers: AUTH_HEADER });
+      return {
+        content: [{ type: "text" as const, text: `Issue ${issueKey} transitioned to "${transitionName}".` }]
+      };
+    }
+  );
 
-    return {
-      content: [{ type: "text", text: `Linked ${issueKey} to epic ${epicKey}.` }]
-    };
-  });
+  server.tool(
+    "assignIssue",
+    { issueKey: z.string(), accountId: z.string() },
+    { description: "Assign a Jira issue to a user by accountId" },
+    async ({ issueKey, accountId }, _extra) => {
+      await axios.put(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/assignee`, {
+        accountId
+      }, { headers: AUTH_HEADER });
+      return {
+        content: [{ type: "text" as const, text: `Assigned ${issueKey} to account ${accountId}.` }]
+      };
+    }
+  );
 
-  server.tool("createIssue", {
-    projectKey: z.string(),
-    summary: z.string(),
-    issueType: z.string().default("Task"),
-    description: z.string().optional()
-  }, { description: "Create a new Jira issue in a project" }, async ({ projectKey, summary, issueType, description }) => {
-    const response = await axios.post(`${JIRA_BASE}/rest/api/3/issue`, {
-      fields: {
-        project: { key: projectKey },
-        summary,
-        description,
-        issuetype: { name: issueType }
-      }
-    }, { headers: AUTH_HEADER });
+  server.tool(
+    "linkToEpic",
+    { issueKey: z.string(), epicKey: z.string() },
+    { description: "Link a Jira issue (like a Story) to an Epic" },
+    async ({ issueKey, epicKey }, _extra) => {
+      await axios.put(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
+        fields: {
+          parent: { key: epicKey }
+        }
+      }, { headers: AUTH_HEADER });
+      return {
+        content: [{ type: "text" as const, text: `Linked ${issueKey} to epic ${epicKey}.` }]
+      };
+    }
+  );
 
-    return {
-      content: [{ type: "text", text: `Created issue ${response.data.key}: ${summary}` }]
-    };
-  });
+  server.tool(
+    "createIssue",
+    { projectKey: z.string(), summary: z.string(), issueType: z.string().default("Task"), description: z.string().optional() },
+    { description: "Create a new Jira issue in a project" },
+    async ({ projectKey, summary, issueType, description }, _extra) => {
+      const response = await axios.post(`${JIRA_BASE}/rest/api/3/issue`, {
+        fields: {
+          project: { key: projectKey },
+          summary,
+          description,
+          issuetype: { name: issueType }
+        }
+      }, { headers: AUTH_HEADER });
+      return {
+        content: [{ type: "text" as const, text: `Created issue ${response.data.key}: ${summary}` }]
+      };
+    }
+  );
 
-  server.tool("updateIssue", {
-    issueKey: z.string(),
-    fields: z.record(z.string(), z.any())
-  }, { description: "Update one or more fields on a Jira issue" }, async ({ issueKey, fields }) => {
-    await axios.put(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
-      fields
-    }, { headers: AUTH_HEADER });
+  server.tool(
+    "updateIssue",
+    { issueKey: z.string(), fields: z.record(z.string(), z.any()) },
+    { description: "Update one or more fields on a Jira issue" },
+    async ({ issueKey, fields }, _extra) => {
+      await axios.put(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
+        fields
+      }, { headers: AUTH_HEADER });
+      return {
+        content: [{ type: "text" as const, text: `Updated issue ${issueKey} with provided fields.` }]
+      };
+    }
+  );
 
-    return {
-      content: [{ type: "text", text: `Updated issue ${issueKey} with provided fields.` }]
-    };
-  });
-
+  console.log('[MCP SERVER] All tools registered: getAssignedIssues, getIssueByKey, transitionIssue, assignIssue, linkToEpic, createIssue, updateIssue');
   return server;
 }
 
