@@ -26,17 +26,24 @@ function getServer(): McpServer {
 
   server.tool(
     "getAssignedIssues",
-    { maxResults: z.number().optional().default(5) },
-    { description: "Get Jira issues assigned to the current user" },
-    async ({ maxResults }, _extra) => {
+    {
+      maxResults: z.number().optional().default(5),
+      nextPageToken: z.string().optional()
+    },
+    { description: "Get Jira issues assigned to the current user. Use nextPageToken for pagination." },
+    async ({ maxResults, nextPageToken }, _extra) => {
       const jql = `assignee = currentUser() ORDER BY updated DESC`;
+      const requestBody: any = {
+        jql,
+        maxResults: maxResults ?? 5,
+        fields: ["summary", "status"]
+      };
+      if (nextPageToken) {
+        requestBody.nextPageToken = nextPageToken;
+      }
       const response = await axios.post(
         `${JIRA_BASE}/rest/api/3/search/jql`,
-        {
-          jql,
-          maxResults: maxResults ?? 5,
-          fields: ["summary", "status"]
-        },
+        requestBody,
         { headers: AUTH_HEADER }
       );
       // @ts-ignore
@@ -45,13 +52,18 @@ function getServer(): McpServer {
         summary: issue.fields.summary,
         status: issue.fields.status.name
       }));
+      let text = issues.map((i: any) => `${i.key}: ${i.summary} [${i.status}]`).join("\n");
+      if (response.data.nextPageToken) {
+        text += `\n\nnextPageToken: ${response.data.nextPageToken}`;
+      }
       return {
         content: [
           {
             type: "text" as const,
-            text: issues.map((i: any) => `${i.key}: ${i.summary} [${i.status}]`).join("\n")
+            text
           }
-        ]
+        ],
+        nextPageToken: response.data.nextPageToken
       };
     }
   );
