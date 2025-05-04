@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from "express";
 import { config } from "dotenv";
 import axios from "axios";
@@ -180,12 +179,32 @@ app.post(PATH, async (req: Request, res: Response) => {
   }
 });
 
-app.get(PATH, (req: Request, res: Response) => {
-  res.set("Allow", "POST").status(405).json({
-    jsonrpc: "2.0",
-    error: { code: -32000, message: "Streaming (SSE) not supported on this endpoint" },
-    id: null
-  });
+app.get(PATH, async (req: Request, res: Response) => {
+  try {
+    const server = getServer();
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    res.on("close", () => {
+      transport.close();
+      server.close();
+    });
+
+    await server.connect(transport);
+    await transport.handleRequest(req, res, {});
+  } catch (error) {
+    console.error("MCP Error:", error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: { code: -32603, message: "Internal server error" },
+        id: null
+      });
+    }
+  }
 });
 
 app.listen(PORT, () => {
