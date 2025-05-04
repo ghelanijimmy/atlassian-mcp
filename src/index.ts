@@ -184,14 +184,6 @@ app.get(PATH, async (req: Request, res: Response) => {
     const server = getServer();
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // Send initial connection message
-    res.write('data: {"jsonrpc":"2.0","method":"connected","params":{}}\n\n');
-
     res.on("close", () => {
       transport.close();
       server.close();
