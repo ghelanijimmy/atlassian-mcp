@@ -1,3 +1,4 @@
+
 import express from "express";
 import { config } from "dotenv";
 import axios from "axios";
@@ -12,9 +13,9 @@ const port = process.env.PORT || 3000;
 
 const JIRA_BASE = `https://${process.env.JIRA_DOMAIN}`;
 const AUTH_HEADER = {
-  Authorization: `Basic ${Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString('base64')}`,
-  Accept: 'application/json',
-  'Content-Type': 'application/json',
+  Authorization: `Basic ${Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString("base64")}`,
+  Accept: "application/json",
+  "Content-Type": "application/json"
 };
 
 const server = new McpServer({
@@ -22,15 +23,12 @@ const server = new McpServer({
   version: "1.0.0"
 });
 
+// TOOL: Get Assigned Issues
 server.tool("getAssignedIssues", {}, { description: "Get Jira issues assigned to the current user" }, async () => {
   const jql = `assignee = currentUser() ORDER BY updated DESC`;
   const response = await axios.get(`${JIRA_BASE}/rest/api/3/search`, {
     headers: AUTH_HEADER,
-    params: {
-      jql,
-      maxResults: 5,
-      fields: 'summary,status'
-    }
+    params: { jql, maxResults: 5, fields: "summary,status" }
   });
 
   const issues = response.data.issues.map((issue: any) => ({
@@ -49,26 +47,13 @@ server.tool("getAssignedIssues", {}, { description: "Get Jira issues assigned to
   };
 });
 
-const { handler } = createSseServerTransport(server);
-app.use("/sse", handler);
-
-app.get("/", (_req, res) => {
-  res.send("MCP SSE Server is running.");
-});
-
-app.listen(port, () => {
-  console.log(`MCP SSE server running on http://localhost:${port}/sse`);
-});
-
-
+// TOOL: Get Issue by Key
 server.tool("getIssueByKey", {
   issueKey: z.string()
 }, { description: "Fetch a specific Jira issue by its key" }, async ({ issueKey }) => {
   const response = await axios.get(`${JIRA_BASE}/rest/api/3/issue/${issueKey}`, {
     headers: AUTH_HEADER,
-    params: {
-      fields: 'summary,description,status,assignee,reporter,priority,comment,project'
-    }
+    params: { fields: "summary,description,status,assignee,reporter,priority,comment,project" }
   });
 
   const fields = response.data.fields;
@@ -77,12 +62,13 @@ server.tool("getIssueByKey", {
     content: [
       {
         type: "text",
-        text: \`\${issueKey}: \${fields.summary}\nStatus: \${fields.status.name}\nAssignee: \${fields.assignee?.displayName || 'Unassigned'}\nPriority: \${fields.priority?.name || 'None'}\nProject: \${fields.project.name}\`
+        text: `${issueKey}: ${fields.summary}\nStatus: ${fields.status.name}\nAssignee: ${fields.assignee?.displayName || "Unassigned"}\nPriority: ${fields.priority?.name || "None"}\nProject: ${fields.project.name}`
       }
     ]
   };
 });
 
+// TOOL: Transition Issue
 server.tool("transitionIssue", {
   issueKey: z.string(),
   transitionName: z.string()
@@ -94,9 +80,7 @@ server.tool("transitionIssue", {
   const match = transitions.data.transitions.find((t: any) => t.name.toLowerCase() === transitionName.toLowerCase());
 
   if (!match) {
-    return {
-      content: [{ type: "text", text: `Transition "${transitionName}" not found.` }]
-    };
+    return { content: [{ type: "text", text: `Transition "${transitionName}" not found.` }] };
   }
 
   await axios.post(`${JIRA_BASE}/rest/api/3/issue/${issueKey}/transitions`, {
@@ -108,6 +92,7 @@ server.tool("transitionIssue", {
   };
 });
 
+// TOOL: Assign Issue
 server.tool("assignIssue", {
   issueKey: z.string(),
   accountId: z.string()
@@ -121,6 +106,7 @@ server.tool("assignIssue", {
   };
 });
 
+// TOOL: Link to Epic
 server.tool("linkToEpic", {
   issueKey: z.string(),
   epicKey: z.string()
@@ -136,6 +122,7 @@ server.tool("linkToEpic", {
   };
 });
 
+// TOOL: Create Issue
 server.tool("createIssue", {
   projectKey: z.string(),
   summary: z.string(),
@@ -156,6 +143,7 @@ server.tool("createIssue", {
   };
 });
 
+// TOOL: Update Issue
 server.tool("updateIssue", {
   issueKey: z.string(),
   fields: z.record(z.string(), z.any())
@@ -167,4 +155,16 @@ server.tool("updateIssue", {
   return {
     content: [{ type: "text", text: `Updated issue ${issueKey} with provided fields.` }]
   };
+});
+
+// SSE transport endpoint
+const { handler } = createSseServerTransport(server);
+app.use("/sse", handler);
+
+app.get("/", (_req, res) => {
+  res.send("MCP SSE Server is running.");
+});
+
+app.listen(port, () => {
+  console.log(`MCP SSE server running on http://localhost:${port}/sse`);
 });
