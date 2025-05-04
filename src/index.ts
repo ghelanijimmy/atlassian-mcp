@@ -187,6 +187,10 @@ app.get(PATH, async (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Send initial connection message
+    res.write('data: {"jsonrpc":"2.0","method":"connected","params":{}}\n\n');
 
     res.on("close", () => {
       transport.close();
@@ -194,7 +198,23 @@ app.get(PATH, async (req: Request, res: Response) => {
     });
 
     await server.connect(transport);
-    await transport.handleRequest(req, res, {});
+    
+    // Handle SSE events
+    transport.on('message', (message) => {
+      res.write(`data: ${JSON.stringify(message)}\n\n`);
+    });
+
+    // Keep the connection alive
+    const keepAlive = setInterval(() => {
+      res.write(': keepalive\n\n');
+    }, 30000);
+
+    res.on('close', () => {
+      clearInterval(keepAlive);
+      transport.close();
+      server.close();
+    });
+
   } catch (error) {
     console.error("MCP Error:", error);
     if (!res.headersSent) {
