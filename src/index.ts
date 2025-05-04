@@ -4,7 +4,7 @@ import { config } from "dotenv";
 import axios from "axios";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createSseServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 config();
 
@@ -23,7 +23,6 @@ const server = new McpServer({
   version: "1.0.0"
 });
 
-// TOOL: Get Assigned Issues
 server.tool("getAssignedIssues", {}, { description: "Get Jira issues assigned to the current user" }, async () => {
   const jql = `assignee = currentUser() ORDER BY updated DESC`;
   const response = await axios.get(`${JIRA_BASE}/rest/api/3/search`, {
@@ -31,7 +30,8 @@ server.tool("getAssignedIssues", {}, { description: "Get Jira issues assigned to
     params: { jql, maxResults: 5, fields: "summary,status" }
   });
 
-  const issues = response.data.issues.map((issue: any) => ({
+  // @ts-ignore
+  const issues = response.data.issues.map((issue) => ({
     key: issue.key,
     summary: issue.fields.summary,
     status: issue.fields.status.name
@@ -41,13 +41,13 @@ server.tool("getAssignedIssues", {}, { description: "Get Jira issues assigned to
     content: [
       {
         type: "text",
-        text: issues.map(i => `${i.key}: ${i.summary} [${i.status}]`).join("\n")
+        // @ts-ignore
+        text: issues.map((i) => `${i.key}: ${i.summary} [${i.status}]`).join("\n")
       }
     ]
   };
 });
 
-// TOOL: Get Issue by Key
 server.tool("getIssueByKey", {
   issueKey: z.string()
 }, { description: "Fetch a specific Jira issue by its key" }, async ({ issueKey }) => {
@@ -68,7 +68,6 @@ server.tool("getIssueByKey", {
   };
 });
 
-// TOOL: Transition Issue
 server.tool("transitionIssue", {
   issueKey: z.string(),
   transitionName: z.string()
@@ -77,7 +76,8 @@ server.tool("transitionIssue", {
     headers: AUTH_HEADER
   });
 
-  const match = transitions.data.transitions.find((t: any) => t.name.toLowerCase() === transitionName.toLowerCase());
+  // @ts-ignore
+  const match = transitions.data.transitions.find((t) => t.name.toLowerCase() === transitionName.toLowerCase());
 
   if (!match) {
     return { content: [{ type: "text", text: `Transition "${transitionName}" not found.` }] };
@@ -92,7 +92,6 @@ server.tool("transitionIssue", {
   };
 });
 
-// TOOL: Assign Issue
 server.tool("assignIssue", {
   issueKey: z.string(),
   accountId: z.string()
@@ -106,7 +105,6 @@ server.tool("assignIssue", {
   };
 });
 
-// TOOL: Link to Epic
 server.tool("linkToEpic", {
   issueKey: z.string(),
   epicKey: z.string()
@@ -122,7 +120,6 @@ server.tool("linkToEpic", {
   };
 });
 
-// TOOL: Create Issue
 server.tool("createIssue", {
   projectKey: z.string(),
   summary: z.string(),
@@ -143,7 +140,6 @@ server.tool("createIssue", {
   };
 });
 
-// TOOL: Update Issue
 server.tool("updateIssue", {
   issueKey: z.string(),
   fields: z.record(z.string(), z.any())
@@ -157,9 +153,9 @@ server.tool("updateIssue", {
   };
 });
 
-// SSE transport endpoint
-const { handler } = createSseServerTransport(server);
-app.use("/sse", handler);
+// Attach SSE endpoint
+const transport = new SSEServerTransport();
+app.use("/sse", transport.handler(server));
 
 app.get("/", (_req, res) => {
   res.send("MCP SSE Server is running.");
