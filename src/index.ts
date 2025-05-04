@@ -200,8 +200,15 @@ app.get(PATH, async (req: Request, res: Response) => {
     await server.connect(transport);
     
     // Handle SSE events
-    transport.on('message', (message) => {
-      res.write(`data: ${JSON.stringify(message)}\n\n`);
+    transport.handleRequest(req, res, {}).catch((error) => {
+      console.error("Transport error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "Internal server error" },
+          id: null
+        });
+      }
     });
 
     // Keep the connection alive
