@@ -1,11 +1,11 @@
 import axios from "axios";
 
 function getJiraBase() {
-  return `https://${process.env.JIRA_DOMAIN}`;
+  return `https://${process.env.ATLASSIAN_DOMAIN}`;
 }
 function getAuthHeader() {
   return {
-    Authorization: `Basic ${Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString("base64")}`,
+    Authorization: `Basic ${Buffer.from(`${process.env.ATLASSIAN_EMAIL}:${process.env.ATLASSIAN_API_TOKEN}`).toString("base64")}`,
     Accept: "application/json",
     "Content-Type": "application/json"
   };

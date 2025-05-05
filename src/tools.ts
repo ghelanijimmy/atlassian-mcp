@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as jira from "./jiraClient.js";
+import * as confluence from "./confluenceClient.js";
 
 export function registerTools(server: McpServer) {
   server.tool(
@@ -74,6 +75,107 @@ export function registerTools(server: McpServer) {
           { type: "text" as const, text: JSON.stringify(data) }
         ]
       };
+    }
+  );
+
+  // Confluence tools
+  server.tool(
+    "confluenceCreatePage",
+    {
+      spaceKey: z.string(),
+      title: z.string(),
+      body: z.string(),
+    },
+    { description: "Create a new Confluence page in a given space." },
+    async (args, _extra) => {
+      const result = await confluence.createPage(args.spaceKey, args.title, args.body);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceGetPage",
+    { pageId: z.string() },
+    { description: "Get a Confluence page by its ID." },
+    async (args, _extra) => {
+      const result = await confluence.getPage(args.pageId);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceUpdatePage",
+    {
+      pageId: z.string(),
+      newTitle: z.string(),
+      newBody: z.string(),
+      version: z.number(),
+    },
+    { description: "Update a Confluence page (title/body/version required)." },
+    async (args, _extra) => {
+      const result = await confluence.updatePage(args.pageId, args.newTitle, args.newBody, args.version);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceDeletePage",
+    { pageId: z.string() },
+    { description: "Delete a Confluence page by its ID." },
+    async (args, _extra) => {
+      const result = await confluence.deletePage(args.pageId);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceListPages",
+    { spaceKey: z.string() },
+    { description: "List all pages in a Confluence space." },
+    async (args, _extra) => {
+      const result = await confluence.listPages(args.spaceKey);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceSearchPages",
+    { cql: z.string() },
+    { description: "Search Confluence pages using a CQL query." },
+    async (args, _extra) => {
+      const result = await confluence.searchPages(args.cql);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceAddComment",
+    { pageId: z.string(), commentBody: z.string() },
+    { description: "Add a comment to a Confluence page." },
+    async (args, _extra) => {
+      const result = await confluence.addComment(args.pageId, args.commentBody);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceAddAttachment",
+    { pageId: z.string(), fileBase64: z.string(), filename: z.string() },
+    { description: "Add an attachment to a Confluence page. File should be base64-encoded." },
+    async (args, _extra) => {
+      const buffer = Buffer.from(args.fileBase64, "base64");
+      const result = await confluence.addAttachment(args.pageId, buffer, args.filename);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
+  server.tool(
+    "confluenceListSpaces",
+    {},
+    { description: "List all Confluence spaces." },
+    async (_args, _extra) => {
+      const result = await confluence.listSpaces();
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
     }
   );
   // Add other tools as needed
