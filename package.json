@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec node --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts",
     "start": "node dist/index.js",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js"
+    "build": "tsc"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
