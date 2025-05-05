@@ -1,5 +1,5 @@
 import express from "express";
-import * as jira from "./jiraClient";
+import * as jira from "./jiraClient.js";
 
 export function registerRestApi(app: express.Express) {
   app.post("/api/issues/search", async (req, res) => {

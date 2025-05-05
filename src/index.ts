@@ -4,8 +4,8 @@ import { config } from "dotenv";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { registerRestApi } from "./restApi";
-import { registerTools } from "./tools";
+import { registerRestApi } from "./restApi.js";
+import { registerTools } from "./tools.js";
 
 // Load and verify environment variables
 config();
