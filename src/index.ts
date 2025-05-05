@@ -98,7 +98,13 @@ app.get('/sse', async (req: Request, res: Response) => {
   // Store the transport by sessionId
   sseTransports[transport.sessionId] = transport;
 
+  // Add keepalive
+  const keepAlive = setInterval(() => {
+    res.write(': keepalive\n\n');
+  }, 30000);
+
   res.on("close", () => {
+    clearInterval(keepAlive);
     delete sseTransports[transport.sessionId];
     transport.close();
     server.close();
@@ -119,5 +125,5 @@ app.post('/messages', async (req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Jira MCP server listening at http://localhost:${PORT}${PATH}`);
+  console.log(`✅ Jira MCP server listening at http://localhost:${PORT}`);
 });
