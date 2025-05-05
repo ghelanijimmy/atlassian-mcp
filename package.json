@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec node --loader ts-node/esm src/index.ts",
+    "dev": "nodemon --watch src --ext ts --exec node --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc"
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
@@ -19,6 +19,7 @@
     "@types/node": "^20.4.1",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "esbuild": "^0.20.0"
   }
 }
