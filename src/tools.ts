@@ -82,12 +82,12 @@ export function registerTools(server: McpServer) {
   server.tool(
     "confluenceCreatePage",
     {
-      spaceKey: z.string(),
+      spaceKey: z.string().describe('Confluence space key (not ID)'),
       title: z.string(),
       body: z.string(),
       parentId: z.string().optional(),
     },
-    { description: "Create a new Confluence page in a given space." },
+    { description: "Create a new Confluence page in a given space. Pass the space key, not the space ID." },
     async (args, _extra) => {
       const result = await confluence.createPage(args.spaceKey, args.title, args.body, args.parentId);
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
@@ -173,7 +173,7 @@ export function registerTools(server: McpServer) {
 
   server.tool(
     "confluenceListSpaces",
-    {},
+    { random_string: z.string().optional() },
     { description: "List all Confluence spaces." },
     async (_args, _extra) => {
       const result = await confluence.listSpaces();

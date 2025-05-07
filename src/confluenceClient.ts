@@ -1,4 +1,5 @@
 import axios from "axios";
+import { marked } from "marked";
 
 const getConfluenceBase = () => `https://${process.env.ATLASSIAN_DOMAIN}/wiki/api/v2`;
 const getAuthHeader = () => ({
@@ -8,15 +9,30 @@ const getAuthHeader = () => ({
 });
 
 /**
+ * Helper to get spaceId from spaceKey
+ */
+export async function getSpaceIdFromKey(spaceKey: string): Promise<string> {
+  const url = `${getConfluenceBase()}/spaces?keys=${encodeURIComponent(spaceKey)}`;
+  const res = await axios.get(url, { headers: getAuthHeader() });
+  if (res.data.results && res.data.results.length > 0) {
+    return res.data.results[0].id;
+  }
+  throw new Error(`Space with key "${spaceKey}" not found`);
+}
+
+/**
  * Create a new Confluence page (v2)
  */
 export async function createPage(spaceKey: string, title: string, body: string, parentId?: string) {
+  const spaceId = await getSpaceIdFromKey(spaceKey);
+  const htmlBody = marked.parse(body); // Convert markdown to HTML
   const data: any = {
-    spaceId: spaceKey,
+    spaceId,
+    status: "current",
     title,
     body: {
       representation: "storage",
-      value: body
+      value: htmlBody
     }
   };
   if (parentId) data.parentId = parentId;
@@ -45,25 +61,30 @@ export async function getPage(pageId: string, bodyFormat = "storage") {
  * Update a Confluence page (v2)
  */
 export async function updatePage(pageId: string, newTitle: string, newBody: string, version: number, parentId?: string, message = "Updated page") {
-  // Fetch current page to get required fields
-  const current = await getPage(pageId);
-  const data: any = {
-    id: pageId,
-    status: current.status || "current",
-    title: newTitle || current.title,
-    body: {
-      representation: "storage",
-      value: newBody || current.body?.storage?.value || current.body?.value || ""
-    },
-    version: { number: version, message }
-  };
-  if (parentId) data.parentId = parentId;
-  const res = await axios.put(
-    `${getConfluenceBase()}/pages/${pageId}`,
-    data,
-    { headers: getAuthHeader() }
-  );
-  return res.data;
+  try {
+    // Fetch current page to get required fields
+    const current = await getPage(pageId);
+    const htmlBody = marked.parse(newBody || current.body?.storage?.value || current.body?.value || "");
+    const data: any = {
+      id: pageId,
+      status: current.status || "current",
+      title: newTitle || current.title,
+      body: {
+        representation: "storage",
+        value: htmlBody
+      },
+      version: { number: version, message }
+    };
+    if (parentId) data.parentId = parentId;
+    const res = await axios.put(
+      `${getConfluenceBase()}/pages/${pageId}`,
+      data,
+      { headers: getAuthHeader() }
+    );
+    return res.data;
+  } catch (err: any) {
+    throw err;
+  }
 }
 
 /**
