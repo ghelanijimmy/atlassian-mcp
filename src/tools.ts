@@ -85,10 +85,11 @@ export function registerTools(server: McpServer) {
       spaceKey: z.string(),
       title: z.string(),
       body: z.string(),
+      parentId: z.string().optional(),
     },
     { description: "Create a new Confluence page in a given space." },
     async (args, _extra) => {
-      const result = await confluence.createPage(args.spaceKey, args.title, args.body);
+      const result = await confluence.createPage(args.spaceKey, args.title, args.body, args.parentId);
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
     }
   );
@@ -110,10 +111,11 @@ export function registerTools(server: McpServer) {
       newTitle: z.string(),
       newBody: z.string(),
       version: z.number(),
+      parentId: z.string().optional(),
     },
     { description: "Update a Confluence page (title/body/version required)." },
     async (args, _extra) => {
-      const result = await confluence.updatePage(args.pageId, args.newTitle, args.newBody, args.version);
+      const result = await confluence.updatePage(args.pageId, args.newTitle, args.newBody, args.version, args.parentId);
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
     }
   );
@@ -178,5 +180,16 @@ export function registerTools(server: McpServer) {
       return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
     }
   );
+
+  server.tool(
+    "confluenceMovePage",
+    { pageId: z.string(), newParentPageId: z.string(), version: z.number() },
+    { description: "Move a Confluence page to be a sub-page of another page. Note: You must increment the version number when moving a page (i.e., use the current version + 1)." },
+    async (args, _extra) => {
+      const result = await confluence.movePage(args.pageId, args.newParentPageId, args.version);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+    }
+  );
+
   // Add other tools as needed
 } 

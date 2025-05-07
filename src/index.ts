@@ -92,6 +92,7 @@ const sseTransports: Record<string, SSEServerTransport> = {};
 
 // Legacy SSE endpoint for older clients
 app.get('/sse', async (req: Request, res: Response) => {
+  console.log('[SSE] Connection opened');
   const server = getServer();
   const transport = new SSEServerTransport('/messages', res);
 
@@ -108,9 +109,11 @@ app.get('/sse', async (req: Request, res: Response) => {
     delete sseTransports[transport.sessionId];
     transport.close();
     server.close();
+    console.log('[SSE] Connection closed');
   });
 
   await server.connect(transport);
+  console.log('[SSE] server.connect finished');
 });
 
 // Legacy message endpoint for older clients
@@ -118,8 +121,11 @@ app.post('/messages', async (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string;
   const transport = sseTransports[sessionId];
   if (transport) {
+    console.log(`[SSE] Handling tool call for sessionId: ${sessionId}`);
     await transport.handlePostMessage(req, res, req.body);
+    console.log(`[SSE] Tool call handled for sessionId: ${sessionId}`);
   } else {
+    console.log(`[SSE] No transport found for sessionId: ${sessionId}`);
     res.status(400).send('No transport found for sessionId');
   }
 });
