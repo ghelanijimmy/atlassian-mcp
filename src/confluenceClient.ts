@@ -32,14 +32,11 @@ export async function createPage(spaceKey: string, title: string, body: string, 
  * Get a Confluence page by ID (v2)
  */
 export async function getPage(pageId: string, bodyFormat = "storage") {
-  console.log('[Confluence] getPage called', { pageId, bodyFormat });
   try {
     const url = `${getConfluenceBase()}/pages/${pageId}?body-format=${bodyFormat}`;
     const res = await axios.get(url, { headers: getAuthHeader() });
-    console.log('[Confluence] getPage response', { data: res.data });
     return res.data;
   } catch (err) {
-    console.error('[Confluence] getPage error', err);
     throw err;
   }
 }
@@ -148,7 +145,6 @@ export async function listSpaces(limit = 25, cursor?: string) {
  * Move a Confluence page to be a sub-page of another page (v2)
  */
 export async function movePage(pageId: string, newParentPageId: string, version: number, message = "Moved page") {
-  console.log('[Confluence] movePage called', { pageId, newParentPageId, version, message });
   try {
     // Fetch current page with body-format=storage
     const current = await getPage(pageId, "storage");
@@ -164,16 +160,14 @@ export async function movePage(pageId: string, newParentPageId: string, version:
       version: { number: version, message },
       parentId: newParentPageId
     };
-    console.log('[Confluence] movePage payload', { url: `${getConfluenceBase()}/pages/${pageId}`, data });
+    
     const res = await axios.put(
       `${getConfluenceBase()}/pages/${pageId}`,
       data,
       { headers: getAuthHeader() }
     );
-    console.log('[Confluence] movePage response', { data: res.data });
     return res.data;
   } catch (err: any) {
-    console.error('[Confluence] movePage error', err?.response?.data || err);
     throw err;
   }
 } 

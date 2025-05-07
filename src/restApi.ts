@@ -131,18 +131,10 @@ export function registerRestApi(app: express.Express) {
 
   app.post("/api/confluence/pages/:id/move", async (req, res) => {
     const { newParentPageId, version } = req.body;
-    console.log('[REST API] /api/confluence/pages/:id/move called', {
-      pageId: req.params.id,
-      newParentPageId,
-      version,
-      body: req.body
-    });
     try {
       const result = await confluence.movePage(req.params.id, newParentPageId, version);
-      console.log('[REST API] movePage result', { result });
       res.json(result);
     } catch (err: any) {
-      console.error('[REST API] movePage error', err?.response?.data || err);
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
