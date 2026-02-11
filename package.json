@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
-    "axios": "^1.6.0",
+    "axios": "^1.13.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "marked": "^15.0.11",
